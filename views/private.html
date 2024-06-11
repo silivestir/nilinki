@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <link rel="stylesheet" href="stylesd.css">
+</head>
+<body>
+    <div class="container">
+        <div class="user-list">
+            <h2>Users</h2>
+            <ul id="user-list">
+                <!-- User list will be populated dynamically -->
+            </ul>
+        </div>
+        <div class="chat">
+            <h2>Chat</h2>
+            <div id="chat-messages">
+                <!-- Chat messages will be displayed here -->
+            </div>
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>document.addEventListener("DOMContentLoaded", function () {
+    const userList = document.getElementById("user-list");
+    const chatMessages = document.getElementById("chat-messages");
+    const messageInput = document.getElementById("message-input");
+
+    const socket = io();
+    let activeChatUser = null; // Track the currently active chat user
+
+    // Function to display chat message
+    function displayMessage(message) {
+        const messageElement = document.createElement("div");
+        messageElement.textContent = `${message.sender}: ${message.message}`;
+        chatMessages.appendChild(messageElement);
+    }
+
+    // Function to populate user list
+    function populateUserList(users) {
+        userList.innerHTML = "";
+        users.forEach(user => {
+            const userElement = document.createElement("li");
+            userElement.textContent = user;
+            userElement.addEventListener("click", () => {
+                activeChatUser = user; // Set the active chat user
+                chatMessages.innerHTML = ""; // Clear chat messages
+                socket.emit("fetchPreviousMessages", user); // Request previous messages
+            });
+            userList.appendChild(userElement);
+        });
+    }
+
+    // Socket event listeners
+    socket.on("connect", () => {
+        console.log("Connected to server");
+    });
+
+    socket.on("users", (users) => {
+        console.log("Received updated user list:", users);
+        populateUserList(users);
+    });
+
+    socket.on("message", (message) => {
+        console.log("Received message:", message);
+        if (message.sender === activeChatUser) {
+            // If the message is from the currently active chat user, display it
+            displayMessage(message);
+        }
+    });
+
+    // Handle receiving previous messages
+    socket.on("previousMessages", ({ user, messages }) => {
+        if (user === activeChatUser) {
+            // Display previous messages in the chat window
+            messages.forEach(message => displayMessage(message));
+        }
+    });
+
+    // Function to send a message
+    function sendMessage() {
+        const message = messageInput.value.trim();
+        if (message !== "") {
+            socket.emit("message", { message, receiverId: activeChatUser });
+            messageInput.value = "";
+            displayMessage({ sender: "You", message });
+        }
+    }
+});</script>
+</body>
+</html>

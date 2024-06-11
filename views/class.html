@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nilinki</title>
+    <style>
+      body, html {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+      }
+      .container {
+        background-color: #f8f9fa;
+        padding: 10px;
+        height: calc(100% - 112px); /* Height of both header and navigation */
+        overflow-y: auto;
+      }
+      .navbar-brand {
+        padding: 15px;
+        margin-right: auto;
+      }
+      .header {
+        background-color: #343a40;
+        color: white;
+        padding: 10px;
+      }
+      .list-nav {
+        background-color: rgba(52, 58, 64, 0.8); /* Dark background with transparency */
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+        z-index: 1;
+      }
+      .list {
+        padding: 10px;
+        list-style: none;
+        margin: 0;
+        display: flex; /* Arrange buttons horizontally */
+        justify-content: space-around; /* Add space between buttons */
+      }
+      .list button {
+        background-color: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+      }
+      .list button.active {
+        background-color: #007bff;
+        border-radius: 5px;
+      }
+      .content {
+        padding-top: 56px; /* Height of header */
+      }
+      .list-nav{padding-bottom: 20px;
+        position: absolute;
+        display: flex;
+        
+        margin-right: 8px;
+      }
+      .body{
+        overflow-y: fixed;
+        display: fixed;
+      }
+      
+      
+    html, body {
+      height: 100%;
+      width: 100%;
+      background-color: #333;
+      font-family: Arial, sans-serif;
+    }
+    #editor-wrapper {
+      width: 70%;
+      margin: 3em auto;
+    }
+  
+    </style>
+        
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</head>
+<body class="body">
+  <div class="header">
+    <div class="container-fluid">
+      <div class="navbar-brand">Nilinki</div>
+    </div>
+  </div>
+
+  <div class="container content">
+    
+
+  <div id="editor-wrapper">
+    <textarea id="editor"></textarea>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  
+  <script src="/codemirror.js"></script>
+  <link rel="stylesheet" href="/codemirror.css">
+  <script src="/javascript.js"></script>
+  <script>
+    var user = prompt("Enter your username:");
+    var myCodeMirror = CodeMirror.fromTextArea(document.getElementById("editor"), {
+      lineNumbers: true,
+      mode: "javascript"
+    });
+
+    var socket = io();
+
+    socket.on('document-update', function(msg){
+      if(msg.user !== user) {
+        myCodeMirror.setValue(msg.value);
+      }
+    });
+
+    myCodeMirror.on('keyup', function () {
+      var msg = {
+        user: user,
+        value: myCodeMirror.getValue()
+      };
+      socket.emit('document-update', msg);
+    });
+  </script>
+    
+  </div>
+
+  <div class="list-nav navbar-inverse bg-dark navbar-dark">
+    <div class="container-fluid">
+      <ul class="list-nav ml-auto">
+        <li class="list nilinki-link" href="/chat.html"><button class="btn btn-secondary" onclick="highlightButton(this)">Chat</button></li>
+        <li class="list nilinki-link" href="/class.html"><button class="btn btn-secondary" onclick="highlightButton(this)">Class</button></li>
+        <li class="list nilinki-link"><button class="btn btn-secondary" onclick="highlightButton(this)">Run</button></li>
+     <!--   <li class="list nilinki-link"><button class="btn btn-secondary" onclick="highlightButton(this)">Groups</button></li>  <li class="list nilinki-link"><button class="btn btn-secondary" onclick="highlightButton(this)">fans</button></li>-->
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function highlightButton(btn) {
+      const buttons = document.querySelectorAll('.list button');
+      buttons.forEach(button => button.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

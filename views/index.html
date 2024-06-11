@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <link rel="stylesheet" href="/style.css" />
+    <title>Nilinki</title>
+    <style>
+    
+      /* Add your CSS styles here */
+     .chatbox {
+        display: flex;
+        flex-direction: column;
+        height: 70vh;
+        overflow-y: scroll;
+        padding: 10px;
+      }
+
+      .chatbox form {
+        display: flex;
+      }
+
+      .chatbox input {
+        flex: 1;
+        border-radius: 5px;
+        padding: 5px;
+        margin-right: 5px;
+      }
+
+      .chatbox button {
+        border: none;
+        background-color: #007bff;
+        color: #fff;
+        border-radius: 5px;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+
+  
+
+      .chat-bubble {
+        max-width: 70%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 10px;
+        clear: both;
+        overflow-wrap: break-word;
+      }
+
+      .sender-bubble {
+        background-color: #015e4b;
+        float: right;
+      }
+
+      .receiver-bubble {
+        background-color: #EAEAEA;
+        float: left;
+      }
+      span{display:flex}
+      body{
+        background-color:black;
+      }
+      
+      #logo{
+        font-weight:bold;
+        font-family:Arial,Helvetica;
+        color:white;
+        font-size:3rem;
+        
+      }
+      body, html {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+      }
+      .container {
+        background-color: #f8f9fa;
+        padding: 10px;
+        height: calc(100% - 112px); /* Height of both header and navigation */
+        overflow-y: auto;
+      }
+      .navbar-brand {
+        padding: 15px;
+        margin-right: auto;
+      }
+      .header {
+        background-color: #343a40;
+        color: white;
+        padding: 10px;
+      }
+      .list-nav {
+        background-color: rgba(52, 58, 64, 0.8); /* Dark background with transparency */
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+        z-index: 1;
+      }
+      .list {
+        padding: 10px;
+        list-style: none;
+        margin: 0;
+        display: flex; /* Arrange buttons horizontally */
+        justify-content: space-around; /* Add space between buttons */
+      }
+      .list button {
+        background-color: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+      }
+      .list button.active {
+        background-color: #007bff;
+        border-radius: 5px;
+      }
+      .content {
+        padding-top: 56px; /* Height of header */
+      }
+      .list-nav{padding-bottom: 20px;
+        position: absolute;
+        display: flex;
+        
+        margin-right: 8px;
+      }
+      .body{
+        overflow-y: fixed;
+        display: fixed;
+        background-color:black;
+      }
+    </style>
+        
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</head>
+<body class="body" style='background-color:black'>
+  <div class="header">
+    <div class="container-fluid">
+      <div class="navbar-brand">Nilinki</div>
+    </div>
+  </div>
+
+
+    <div class="container content " style="background-color:black">
+      
+            <div id="nicknameForm">
+        <form>
+          
+          <input type="text" id="nickname" placeholder="Enter nickname its an option"/>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    <span>you with other</span><ul id="users"></ul>
+     <div class="chatbox">
+        <ul id="messagelist"></ul>
+        <form class="Input">
+          <span class="i8"></span>
+          <input type="text" placeholder="Type your message ..." />
+          <button>Send</button>
+        </form>
+      </div>
+      <br />
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+    const userList = document.querySelector("ul#users");
+//    var userList=document.getElementById("users")
+      const socket = io();
+var userName;
+let users=[];
+
+socket.on("users", function (_users) {
+  users = _users;
+  updateUsers();
+});
+
+
+
+function updateUsers() {
+  userList.textContent = "";
+ // for (let i = 0; i < users.length; i++) {
+    var node = document.createElement("LI");
+    var textnode = document.createTextNode(`you with other ${users.length-1} people`);
+    node.appendChild(textnode);
+    // Add a click event listener to each user
+    node.addEventListener("click", () => {
+     // alert(users[i])
+   //   createPrivateChatWindow(users[i]);
+    });
+    userList.appendChild(node);
+ // }
+}
+
+      // Function to create a chat message element
+      
+      
+      const nicknameForm = document.querySelector("#nicknameForm form");
+      nicknameForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const nicknameInput = document.querySelector("#nickname");
+        const nickname = nicknameInput.value.trim();
+        
+        
+        userName=nickname;
+        if (nickname !== "") {
+          document.querySelector("#nicknameForm").style.display = "none";
+          document.querySelector(".chatbox").style.display = "block";
+          userAddHandler(nickname);
+        }
+      });
+
+
+
+function createChatAudioElement(user, audio, messageType) {
+        const chatMessage = document.createElement("li");
+        
+       if(messageType==="sender"){
+        chatMessage.style.backgroundColor='#53bdea'}
+        chatMessage.classList.add('chat-bubble', messageType === 'sender' ? 'sender-bubble' : 'receiver-bubble');
+        
+        
+      chatMessage.innerHTML=` <strong>       ${user}:</strong> 
+         `;
+         
+         
+         chatMessage.appendChild(audio)
+        return chatMessage;
+      }
+
+
+
+
+      function createChatMessageElement(user, message, messageType) {
+        const chatMessage = document.createElement("li");
+        
+       if(messageType==="sender"){
+        chatMessage.style.backgroundColor='#53bdea'}
+        chatMessage.classList.add('chat-bubble', messageType === 'sender' ? 'sender-bubble' : 'receiver-bubble');
+        chatMessage.innerHTML = `<strong>${user}:</strong> ${message}
+         `;
+        return chatMessage;
+      }
+
+
+
+
+
+      // Function to create a private chat window
+      function createPrivateChatWindow(sender) {
+        const privateChatWindow = document.createElement("div");
+        privateChatWindow.classList.add("private-chat");
+        privateChatWindow.dataset.sender = sender;
+        privateChatWindow.innerHTML = `<h2>Private Chat with ${sender}</h2>
+        
+        
+        
+        
+        
+        
+        `;
+        
+        /*
+        const messageForm = document.querySelector(".chatbox form");
+      const messageList = document.querySelector("#messagelist");
+
+      messageForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const messageInput = document.querySelector(".chatbox input");
+        const message = messageInput.value;
+        socket.emit("message", message);
+        messageInput.value = "";
+      });
+        
+        */
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        document.querySelector('.chatbox').appendChild(privateChatWindow);
+         // return privateChatWindow;
+      }
+
+      // Create buttons for recording, stopping recording, and sending the voice message
+      var recordButton = document.createElement("button");
+      recordButton.style.backgroundColor="green"
+      recordButton.style.Color="white"
+      recordButton.style.height="1.8rem"
+      recordButton.style.width="1.8rem"
+      recordButton.style.borderRadius="50%"
+      
+      recordButton.textContent = " R ";
+      document.querySelector(".chatbox .i8").appendChild(recordButton);
+      
+       var stopButton = document.createElement("button");
+       
+      
+      
+ /*     stopButton.style.backgroundColor('red');
+      recordButton.style.backgroundColor('green');
+      stopButton.style.Color('white');
+      stopButton.style.fontWeight('bold');
+      recordButton.style.Color('white');
+      recordButton.style.fontWeight('bold');
+      */
+      stopButton.style.backgroundColor="red"
+      stopButton.style.Color="white"
+      stopButton.style.height="1.8rem"
+      stopButton.style.width="1.8rem"
+      stopButton.style.borderRadius="50%"
+      
+      stopButton.textContent = " R ";
+      document.querySelector(".i8").appendChild(stopButton);
+      
+      
+      stopButton.textContent = "S";
+      stopButton.style.display = "none";
+      const sendButton = document.createElement("button");
+      sendButton.textContent = "Send";
+      sendButton.style.display = "none";
+
+      // Append elements to the body
+    //  document.body.appendChild(recordButton);
+     //  document.body.appendChild(stopButton);
+      //  document.body.appendChild(sendButton);
+
+      let mediaRecorder;
+      let chunks = [];
+
+      recordButton.addEventListener("click", () => {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            chunks = [];
+
+            mediaRecorder.addEventListener("dataavailable", event => {
+              chunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener("stop", () => {
+              const blob = new Blob(chunks, { type: "audio/wav" });
+              const reader = new FileReader();
+
+              reader.onload = () => {
+                const audioDataUrl = reader.result;
+                socket.emit("voiceMessage", audioDataUrl);
+                
+              };
+
+              reader.readAsDataURL(blob);
+            });
+
+            mediaRecorder.start();
+            recordButton.style.display = "none";
+            stopButton.style.display = "inline";
+            sendButton.style.display = "none";
+          })
+          .catch(error => {
+            console.error("Error accessing microphone:", error);
+          });
+      });
+
+      stopButton.addEventListener("click", () => {
+        mediaRecorder.stop();
+        recordButton.style.display = "inline";
+        stopButton.style.display = "none";
+        sendButton.style.display = "inline";
+      });
+
+      sendButton.addEventListener("click", () => {
+        chunks = []; // Reset chunks
+        sendButton.style.display = "none";
+      });
+
+
+
+
+
+
+
+
+      socket.on("voiceMessageSaved", (fileName,user) => {
+        // Create an audio element
+        
+        const audio = document.createElement("audio");
+
+        // Set the source of the audio element
+        audio.src = fileName;
+
+        // Set other attributes if needed
+        audio.controls = true; // Add controls to the audio element
+        audio.type = "audio/wav";
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+const chatMessage = createChatAudioElement(user.user, audio, user.user === userName ? 'sender' : 'receiver');
+ 
+  messageList.appendChild(chatMessage);
+      });
+
+      // Existing code for handling chat messages
+      // Assuming there's a message form and message list in the HTML structure
+      const messageForm = document.querySelector(".chatbox form");
+      const messageList = document.querySelector("#messagelist");
+
+      messageForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const messageInput = document.querySelector(".chatbox input");
+        const message = messageInput.value;
+        if(message!=''){
+        socket.emit("message", message);}
+        messageInput.value = "";
+      });
+/*
+      socket.on("message", ({ user, message }) => {
+        const chatMessage = createChatMessageElement(user, message, 'receiver');
+        messageList.appendChild(chatMessage);
+      });
+*/
+
+
+
+socket.on("message", ({ user, message }) => {
+  
+  const chatMessage = createChatMessageElement(user, message, user === userName ? 'sender' : 'receiver');
+  messageList.appendChild(chatMessage);
+});
+
+
+      socket.on("private", (data) => {
+        // Handle private messages
+        const privateChatWindow = createPrivateChatWindow(data.sender);
+        const chatMessage = createChatMessageElement(data.sender, data.message, 'receiver');
+        privateChatWindow.appendChild(chatMessage);
+      });
+
+      function userAddHandler(user) {
+     
+        userName =user|| `Nilinki@ ${Math.floor(Math.random() * 1000000)}`;
+        socket.emit("adduser", userName);
+      }
+
+      userAddHandler();
+    </script>
+   
+  </div>
+
+  <div class="list-nav navbar-inverse bg-dark navbar-dark">
+    <div class="container-fluid">
+      <ul class="list-nav ml-auto">
+        <li class="list nilinki-link" href="/chat.html"><button class="btn btn-secondary" onclick="highlightButton(this)">Chat</button></li>
+        <li class="list nilinki-link" href="/class.html"><button class="btn btn-secondary" onclick="highlightButton(this)">Class</button></li>
+        <li class="list nilinki-link"><button class="btn btn-secondary" onclick="highlightButton(this);">Run</button></li>
+      <!--  <li class="list nilinki-link"><button class="btn btn-secondary" onclick="highlightButton(this)">Groups</button></li>  <li class="list nilinki-link"><button class="btn btn-secondary" onclick="highlightButton(this)">fans</button></li>-->
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function highlightButton(btn) {
+      const buttons = document.querySelectorAll('.list button');
+      buttons.forEach(button => button.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

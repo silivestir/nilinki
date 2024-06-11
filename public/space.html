@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- meta -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- title -->
+<title>Example website</title>
+
+<!-- css -->
+<style type="text/css">
+/* css syntax */
+body {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 50px #eee;
+    padding: 20px;
+    background: #fff
+}
+html {
+    background: #fafafa
+}
+</style>
+
+</head>
+<body>
+<section>
+<div class="container">
+<h1>Example website</h1>
+<p>This is just a HTML example</p>
+</div>
+</section>
+</body>
+</html>
+</textarea>
+</div>
+<iframe id="code_result" width="100%" height="500px" style="border: 5px solid gray">
+</iframe>
+<button onclick="run()">Run code!</button>
+
+</div>
+</section>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.4/codemirror.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.4/mode/xml/xml.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.4/mode/css/css.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.4/mode/javascript/javascript.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.13.4/mode/htmlmixed/htmlmixed.js'></script>
+<script id="rendered-js" >
+var doc = document.getElementById('code_result').contentWindow.document;
+var html_value;
+
+const editor = CodeMirror(document.getElementById("codeEditor"), {
+        value: "// I'm from the future, please start",
+        styleActiveLine: true,
+    lineNumbers: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    autoCloseTags: true,
+    mode: "htmlmixed",
+        lineNumbers: true,
+        
+        theme: "base16-dark"
+      });
+
+/*
+var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+    styleActiveLine: true,
+    lineNumbers: true,
+    matchBrackets: true,
+    autoCloseBrackets: true,
+    autoCloseTags: true,
+    mode: "htmlmixed",
+});
+*/
+function run() {
+    html_value = editor.getValue();
+    doc.open();
+    doc.write(html_value);
+    doc.close();
+}
+</script>
+</body>
+
+</html>
