@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nilinki</title>
+    <title>Splannes</title>
     <style>
       body, html {
         height: 100%;
@@ -101,31 +101,584 @@
   <script src="/codemirror.js"></script>
   <link rel="stylesheet" href="/codemirror.css">
   <script src="/javascript.js"></script>
+
+  <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/bootstrap.min.css">
+    
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden; /* Prevent scrollbars */
+    }
+   
+    #toggle-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 10px;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+      <link rel="stylesheet" href="viewer.css">
+
+
+  <script src="pdf.worker.min.js"></script>
+ 
+
+  <script src="viewer.mjs"></script>
+ 
+
+
+  <script src="pdf.worker.mjs"></script>
+ 
+  <script src="pdf.worker.js"></script>
+ 
+
+  <script src="pdf.mjs"></script>
+ 
+  <script src="pdf.min.js"></script>
+ 
+</head>
+<body>
+   <button class="toggle-button" onclick="undo()">Undo</button>
+  <input type="color" id="colorPicker" value="#000000">
+  <button class="toggle-button" onclick="toggleDrawingMode()">Toggle Drawing / Scroll</button>
+
+  <button class="toggle-button" onclick="redo()">Redo</button>
+  
+  
+  <div class="container">
+    <button id="toggleVoiceBtn">Start Voice</button>
+    <div id="statusDot"></div>
+    <form id="uploadForm" enctype="multipart/form-data" action="http://localhost:3000/upload" method="POST">
+  <div class="form-group">
+    <label for="uploadFile">Select PDF Book</label>
+    <input type="file" class="form-control-file" id="book" name="book" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Upload Book</button>
+</form>
+
+    <hr>
+    <div>
+      <label for="fileSelect">Select File:</label>
+      <select id="fileSelect"></select>
+      <button id="useFileBtn">Use</button>
+      <button id="deleteFileBtn">Delete</button>
+      <button id="downloadFileBtn">Download</button>
+    </div>
+  </div>
+  <div id="pdf-main-container">
+	<div id="pdf-loader">UMODesk is Loading the book ...</div>
+	<div id="pdf-contents">
+		<div id="pdf-meta">
+			<div id="pdf-buttons">
+				<button id="pdf-prev">Previous</button>
+				<button id="pdf-next">Next</button>
+			</div>
+			<div id="page-count-container">Page <div id="pdf-current-page"></div> of <div id="pdf-total-pages"></div></div>
+		</div>
+		<!-- <canvas id="pdf-canvas" width="400"></canvas> -->
+		<canvas id="pdf-canvas" width="2000"></canvas>
+		<div id="page-loader">Loading page ...</div>
+	</div>
+	
+ <center> <p class="text-secondary fw-bold">&#169 UMODesk <script>var d=new Date().getYear();</script>2024</p></center>
+</div>
+
+
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    var user = prompt("Enter your username:");
-    var myCodeMirror = CodeMirror.fromTextArea(document.getElementById("editor"), {
-      lineNumbers: true,
-      mode: "javascript"
+    
+    const socket = io();
+    
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = true; // Initial mode is drawing
+    let currentPath = [];
+    let history = [];
+    let currentPathIndex = -1;
+    let currentColor = '#000000'; // Initial color
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Event listeners for drawing mode
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDrawing);
+    canvas.addEventListener('mouseleave', endDrawing);
+
+    // Event listeners for touch devices
+    canvas.addEventListener('touchstart', startDrawingTouch);
+    canvas.addEventListener('touchmove', drawTouch);
+    canvas.addEventListener('touchend', endDrawing);
+
+    // Toggle between drawing and scroll mode
+    function toggleDrawingMode() {
+      drawing = !drawing;
+      canvas.style.cursor = drawing ? 'crosshair' : 'grab';
+
+      if (!drawing) {
+        canvas.removeEventListener('mousedown', startDrawing);
+        canvas.removeEventListener('mousemove', draw);
+        canvas.removeEventListener('touchstart', startDrawingTouch);
+        canvas.removeEventListener('touchmove', drawTouch);
+        canvas.removeEventListener('mouseup', endDrawing);
+        canvas.removeEventListener('mouseleave', endDrawing);
+        canvas.addEventListener('wheel', zoomCanvas);
+      } else {
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchstart', startDrawingTouch);
+        canvas.addEventListener('touchmove', drawTouch);
+        canvas.addEventListener('mouseup', endDrawing);
+        canvas.addEventListener('mouseleave', endDrawing);
+        canvas.removeEventListener('wheel', zoomCanvas);
+      }
+    }
+
+    // Start drawing (mouse)
+    function startDrawing(event) {
+      if (!drawing) return;
+      const { offsetX, offsetY } = event;
+      currentPath.push({ x: offsetX, y: offsetY });
+    }
+
+    // Draw line on canvas (mouse)
+    function draw(event) {
+      if (!drawing) return;
+      event.preventDefault(); // Prevent default mouse move behavior
+      const { offsetX, offsetY } = event;
+      drawLine(offsetX, offsetY);
+    }
+
+    // Start drawing (touch)
+    function startDrawingTouch(event) {
+      if (!drawing) return;
+      const touch = event.touches[0];
+      const offsetX = touch.clientX - canvas.getBoundingClientRect().left;
+      const offsetY = touch.clientY - canvas.getBoundingClientRect().top;
+      currentPath.push({ x: offsetX, y: offsetY });
+    }
+
+    // Draw line on canvas (touch)
+    function drawTouch(event) {
+      if (!drawing) return;
+      event.preventDefault(); // Prevent default touch move behavior
+      const touch = event.touches[0];
+      const offsetX = touch.clientX - canvas.getBoundingClientRect().left;
+      const offsetY = touch.clientY - canvas.getBoundingClientRect().top;
+      drawLine(offsetX, offsetY);
+    }
+
+    // Draw line on canvas and emit draw event
+    function drawLine(x, y) {
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = currentColor;
+
+      const prevPoint = currentPath[currentPath.length - 1];
+      currentPath.push({ x, y });
+
+      ctx.beginPath();
+      ctx.moveTo(prevPoint.x, prevPoint.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      socket.emit('draw', { x, y, color: currentColor });
+    }
+
+    // End drawing and prepare for next stroke
+    function endDrawing() {
+      if (!drawing) return;
+      socket.emit('drawPath', { path: currentPath, color: currentColor });
+      history.push(currentPath);
+      currentPathIndex++;
+      currentPath = [];
+    }
+
+    // Handle zooming (scrolling) on the canvas
+    function zoomCanvas(event) {
+      if (!drawing) {
+        event.preventDefault();
+        const delta = event.deltaY;
+        const scaleFactor = 1.1;
+        if (delta < 0) {
+          // Zoom in
+          canvas.style.transformOrigin = `${event.offsetX}px ${event.offsetY}px`;
+          canvas.style.transform = `scale(${scaleFactor})`;
+        } else {
+          // Zoom out
+          canvas.style.transformOrigin = 'center';
+          canvas.style.transform = `scale(${1 / scaleFactor})`;
+        }
+      }
+    }
+
+    // Receive draw events from server and draw paths
+    socket.on('draw', (data) => {
+      drawPath(data.path, data.color);
     });
 
-    var socket = io();
+    // Draw a path on canvas
+    function drawPath(path, color) {
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = color || '#000';
 
-    socket.on('document-update', function(msg){
-      if(msg.user !== user) {
-        myCodeMirror.setValue(msg.value);
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+
+      for (let i = 1; i < path.length; i++) {
+        ctx.lineTo(path[i].x, path[i].y);
+        ctx.stroke();
+      }
+    }
+
+    // Undo last drawing action
+    function undo() {
+      if (currentPathIndex > 0) {
+        history.push(currentPath);
+        currentPathIndex--;
+        currentPath = history[currentPathIndex].slice();
+        redrawCanvas();
+      }
+    }
+
+    // Redo last undone drawing action
+    function redo() {
+      if (currentPathIndex < history.length - 1) {
+        currentPathIndex++;
+        currentPath = history[currentPathIndex].slice();
+        redrawCanvas();
+      }
+    }
+
+    // Redraw entire canvas based on history
+    function redrawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      history.forEach(path => drawPath(path));
+      drawPath(currentPath);
+    }
+
+    // Event listener for color picker
+    const colorPicker = document.getElementById('colorPicker');
+    colorPicker.addEventListener('change', (event) => {
+      currentColor = event.target.value; // Update current color
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      redrawCanvas();
+      if (!drawing) {
+        canvas.style.transform = 'scale(1)';
       }
     });
-
-    myCodeMirror.on('keyup', function () {
-      var msg = {
-        user: user,
-        value: myCodeMirror.getValue()
-      };
-      socket.emit('document-update', msg);
-    });
-  </script>
     
-  </div>
+    
+    
+    
+    
+    
+    
+let isVoiceEnabled = false;
+const toggleVoiceBtn = document.getElementById('toggleVoiceBtn');
+const statusDot = document.getElementById('statusDot');
+const fileSelect = document.getElementById('fileSelect');
+const useFileBtn = document.getElementById('useFileBtn');
+const deleteFileBtn = document.getElementById('deleteFileBtn');
+const downloadFileBtn = document.getElementById('downloadFileBtn');
+
+toggleVoiceBtn.addEventListener('click', async () => {
+  if (!isVoiceEnabled) {
+
+    
+// Start voice communication
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const peer = new RTCPeerConnection({
+      iceServers: [
+        { urls: ["stun:jb-turn1.xirsys.com"] },
+        {
+          username: "ThK62DFxhWfF_rWfCtuUZt0LUR3BiY4koGarrmhRh2rhDN9yIRRRMiiqKMORHsk4AAAAAGXwE6ZTaWxpdmVzdGly",
+          credential: "61cefe8c-e04b-11ee-a497-0242ac120004",
+          urls: [
+            "turn:jb-turn1.xirsys.com:80?transport=udp",
+            "turn:jb-turn1.xirsys.com:3478?transport=udp",
+            "turn:jb-turn1.xirsys.com:80?transport=tcp",
+            "turn:jb-turn1.xirsys.com:3478?transport=tcp",
+            "turns:jb-turn1.xirsys.com:443?transport=tcp",
+            "turns:jb-turn1.xirsys.com:5349?transport=tcp"
+          ]
+        }
+      ]
+    });
+
+    stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+    peer.onnegotiationneeded = async () => {
+      await peer.setLocalDescription(await peer.createOffer());
+      socket.emit('offer', peer.localDescription);
+    };
+
+    socket.on('answer', async answer => {
+      await peer.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on('ice', candidate => {
+      peer.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+
+    peer.onicecandidate = event => {
+      if (event.candidate) {
+        socket.emit('ice', event.candidate);
+      }
+    };
+
+    toggleVoiceBtn.textContent = 'Stop Voice';
+    isVoiceEnabled = true;
+    animateStatusDot();
+
+} else {
+    
+toggleVoiceBtn.textContent = 'Start Voice';
+    isVoiceEnabled = false;
+    statusDot.style.backgroundColor = 'black';
+  }
+});
+
+socket.on('fileList', fileList => {
+  fileSelect.innerHTML = '';
+  fileList.forEach(file => {
+    const option = document.createElement('option');
+    option.textContent = file.filename;
+    option.value = file.path;
+    fileSelect.appendChild(option);
+  });
+});
+
+useFileBtn.addEventListener('click', () => {
+  const selectedFile = fileSelect.value;
+  if (selectedFile) {
+    socket.emit('useFile', selectedFile);
+    
+renderPDF(selectedFile)
+function renderPDF(path) {
+    const filename = path.split('/').pop(); // Extract filename from path
+    
+   
+    showPDF(`/uploads/${filename}`); // Render the selected file when clicked
+}
+    
+    
+    var _PDF_DOC,
+    _CURRENT_PAGE,
+    _TOTAL_PAGES,
+    _PAGE_RENDERING_IN_PROGRESS = 0,
+    _CANVAS = document.querySelector('#pdf-canvas');
+
+// initialize and load the PDF
+async function showPDF(pdf_url) {
+    document.querySelector("#pdf-loader").style.display = 'block';
+
+    // get handle of pdf document
+    try {
+     // alert(pdf_url)
+      
+        _PDF_DOC = await pdfjsLib.getDocument({ url: pdf_url });
+    }
+    catch(error) {
+        alert(error.message);
+    }
+
+    // total pages in pdf
+    _TOTAL_PAGES = _PDF_DOC.numPages;
+    
+    // Hide the pdf loader and show pdf container
+    document.querySelector("#pdf-loader").style.display = 'none';
+    document.querySelector("#pdf-contents").style.display = 'block';
+    document.querySelector("#pdf-total-pages").innerHTML = _TOTAL_PAGES;
+
+    // show the first page
+    showPage(1);
+}
+
+// load and render specific page of the PDF
+async function showPage(page_no) {
+    _PAGE_RENDERING_IN_PROGRESS = 1;
+    _CURRENT_PAGE = page_no;
+
+    // disable Previous & Next buttons while page is being loaded
+    document.querySelector("#pdf-next").disabled = true;
+    document.querySelector("#pdf-prev").disabled = true;
+
+    // while page is being rendered hide the canvas and show a loading message
+    document.querySelector("#pdf-canvas").style.display = 'none';
+    document.querySelector("#page-loader").style.display = 'block';
+
+    // update current page
+    document.querySelector("#pdf-current-page").innerHTML = page_no;
+    
+    // get handle of page
+    try {
+        var page = await _PDF_DOC.getPage(page_no);
+    }
+    catch(error) {
+        alert(error.message);
+    }
+
+    // original width of the pdf page at scale 1
+    var pdf_original_width = page.getViewport(1).width;
+    
+    // as the canvas is of a fixed width we need to adjust the scale of the viewport where page is rendered
+    var scale_required = _CANVAS.width / pdf_original_width;
+
+    // get viewport to render the page at required scale
+    var viewport = page.getViewport(scale_required);
+
+    // set canvas height same as viewport height
+    _CANVAS.height = viewport.height;
+
+    // setting page loader height for smooth experience
+    document.querySelector("#page-loader").style.height =  _CANVAS.height + 'px';
+    document.querySelector("#page-loader").style.lineHeight = _CANVAS.height + 'px';
+
+    // page is rendered on <canvas> element
+    var render_context = {
+        canvasContext: _CANVAS.getContext('2d'),
+        viewport: viewport
+    };
+        
+    // render the page contents in the canvas
+    try {
+        await page.render(render_context);
+    }
+    catch(error) {
+        alert(error.message);
+    }
+
+    _PAGE_RENDERING_IN_PROGRESS = 0;
+
+    // re-enable Previous & Next buttons
+    document.querySelector("#pdf-next").disabled = false;
+    document.querySelector("#pdf-prev").disabled = false;
+
+    // show the canvas and hide the page loader
+    document.querySelector("#pdf-canvas").style.display = 'block';
+    document.querySelector("#page-loader").style.display = 'none';
+}
+
+// click on the "Previous" page button
+document.querySelector("#pdf-prev").addEventListener('click', function() {
+    if(_CURRENT_PAGE != 1)
+        showPage(--_CURRENT_PAGE);
+});
+
+// click on the "Next" page button
+document.querySelector("#pdf-next").addEventListener('click', function() {
+    if(_CURRENT_PAGE != _TOTAL_PAGES)
+        showPage(++_CURRENT_PAGE);
+});
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  //  alert(`File ${selectedFile} selected for use`);
+  } else {
+    alert('Please select a file');
+  }
+});
+
+deleteFileBtn.addEventListener('click', () => {
+  const selectedFile = fileSelect.value;
+  if (selectedFile) {
+    fetch(`/delete/${encodeURIComponent(selectedFile)}`, { method: 'DELETE' })
+      .then(response => {
+        if (response.ok) {
+          alert(`File ${selectedFile} deleted successfully`);
+        } else {
+          alert('Error deleting file');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting file');
+      });
+  } else {
+    alert('Please select a file');
+  }
+});
+
+downloadFileBtn.addEventListener('click', () => {
+  const selectedFile = fileSelect.value;
+  if (selectedFile) {
+    window.open(`/download/${encodeURIComponent(selectedFile)}`, '_blank');
+  } else {
+    alert('Please select a file');
+  }
+});
+
+// Function to animate status dot (as previously defined)
+function animateStatusDot() {
+  const colors = ['red', 'green', 'cyan'];
+  let index = 0;
+
+  function changeColor() {
+    statusDot.style.backgroundColor = colors[index];
+    index = (index + 1) % colors.length;
+    if (isVoiceEnabled) {
+      setTimeout(changeColor, 500); // Change color every 0.5 seconds
+    } else {
+      statusDot.style.backgroundColor = 'black';
+    }
+  }
+
+  changeColor();
+}
+  </script>
+  
+  <script src="/bootstrap.min.js"></script>
+<script>
+  document.getElementById('uploadForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const formData = new FormData();
+    formData.append('book', document.getElementById('book').files[0]);
+
+    fetch('http://localhost:3000/upload', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      if (response.ok) {
+        alert('Book uploaded successfully');
+        document.getElementById('uploadForm').reset();
+      } else {
+        alert('Failed to upload book');
+      }
+    })
+    .catch(error => console.error('Error uploading book:', error));
+  });
+</script>
+
+
 
   <div class="list-nav navbar-inverse bg-dark navbar-dark">
     <div class="container-fluid">
