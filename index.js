@@ -488,6 +488,116 @@ app.post('/updateBook', async (req, res) => {
 });
 
 
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
+let uploadedFiles = [];
+app.use(express.static(__dirname + '/publik'));
+
+// Serve static files from the 'uploads' directory
+app.use('/publik', express.static(path.join(__dirname, '/publik')));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// File upload endpoint
+app.post('/upload', upload.single('book'), async (req, res) => {
+  const file = req.file;
+  uploadedFiles.push(file);
+  io.emit('fileList', getFilesList());
+  res.send('File uploaded successfully');
+});
+
+// Delete file endpoint
+app.delete('/delete/:filename', async (req, res) => {
+  const filename = req.params.filename;
+  try {
+    await fs.unlink(path.join(__dirname, 'uploads', filename));
+    uploadedFiles = uploadedFiles.filter(file => file.filename !== filename);
+    io.emit('fileList', getFilesList());
+    res.send('File deleted successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error deleting file');
+  }
+});
+
+// Download file endpoint (for PDF files)
+app.get('/download/:filename', async (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, 'uploads', filename);
+  try {
+    const stat = await fs.stat(filePath);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    console.error(err);
+    res.status(404).send('File not found');
+  }
+});
+
+function getFilesList() {
+  return uploadedFiles.map(file => ({ filename: file.filename, path: `/uploads/${file.filename}` }));
+}
+
+io.on('connection', socket => {
+  console.log('a user connected');
+
+  // Send current file list to newly connected client
+  socket.emit('fileList', getFilesList());
+
+  socket.on('disconnect', () => {
+    console.log('user disconnected');
+  });
+});
+
+let paths = [];
+let nextPathId = 1;
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log('A user connected');
+
+  // Send existing paths to new client
+  paths.forEach((path) => {
+    socket.emit('draw', { path: path.path, color: path.color });
+  });
+
+  // Handle drawing path from client
+  socket.on('drawPath', (data) => {
+    const { path, color } = data;
+    path.id = nextPathId++; // Assign a unique ID to the path
+    paths.push({ path, color }); // Store the received path with color
+    socket.broadcast.emit('draw', { path, color }); // Broadcast the path and color to all other clients
+  });
+
+  // Handle undo action
+  socket.on('undo', () => {
+    if (paths.length > 0) {
+      paths.pop(); // Remove the last path from history
+      socket.broadcast.emit('undo'); // Broadcast the undo action
+    }
+  });
+
+  // Handle redo action (optional)
+  // Implement redo logic as per your application needs
+
+  // Handle disconnect event
+ /* socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });*/
+);
 
 
 
